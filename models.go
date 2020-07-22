@@ -5,13 +5,6 @@ import (
 	"sync"
 )
 
-// TMP
-
-type ReturnItem struct {
-	*item
-	expression string
-}
-
 // The Cache Model
 
 type item struct {
@@ -23,6 +16,24 @@ type expressionResult struct {
 	result int64
 }
 
+type orderItem struct {
+	item     *item
+	next     *orderItem
+	previous *orderItem
+}
+
+type order struct {
+	head *orderItem
+	tail *orderItem
+}
+
+// The queue Model
+type queue struct {
+	list map[string]*item
+	order
+	availableSpace byte
+}
+
 type Cache struct {
 	mx                     sync.RWMutex
 	items                  map[string]*expressionResult
@@ -30,16 +41,32 @@ type Cache struct {
 	size                   byte
 	capacity               byte
 	minCount               byte
+	queue
 }
 
-func NewCache(size byte) *Cache {
-	newCacheItems := make(map[string]*expressionResult, size)
-	return &Cache{items: newCacheItems, capacity: size}
+func NewCache(cacheSize, queueSize byte) (*Cache, error) {
+	if cacheSize == 0 {
+		return nil, errors.New("incorrect cache size")
+	}
+
+	if queueSize == 0 {
+		return nil, errors.New("incorrect queue size")
+	}
+
+	newCache := Cache{items: make(map[string]*expressionResult, cacheSize), capacity: cacheSize,
+		queue: queue{
+			list:           make(map[string]*item, queueSize),
+			order:          order{},
+			availableSpace: queueSize,
+		}}
+
+	return &newCache, nil
 }
 
-func (c *Cache) HasExpression(expression string) (ok bool) {
-	c.mx.RLock()
-	defer c.mx.RUnlock()
+// HasResult increments the expression counter if the expression is in the cache or returns false
+func (c *Cache) HasResult(expression string) (ok bool) {
+	c.mx.Lock()
+	defer c.mx.Unlock()
 
 	_, ok = c.items[expression]
 	if ok {
@@ -51,8 +78,8 @@ func (c *Cache) HasExpression(expression string) (ok bool) {
 	return
 }
 
-// CheckSpaceAndAdd adds an item to the cache unless the cache is full
-func (c *Cache) CheckSpaceAndAdd(expression string, result int64) (ok bool) {
+// CheckSpaceAndAddToCache adds an item to the cache unless the cache is full
+func (c *Cache) CheckSpaceAndAddToCache(expression string, result int64) (ok bool) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 
@@ -71,6 +98,9 @@ func (c *Cache) CheckSpaceAndAdd(expression string, result int64) (ok bool) {
 }
 
 func (c *Cache) Pop() (expressionToMove string, itemToMove *item) {
+	c.mx.Lock()
+	defer c.mx.Unlock()
+
 	expressionToMove = c.minCountItemExpression
 	itemToMove = &c.items[c.minCountItemExpression].item
 	delete(c.items, c.minCountItemExpression)
@@ -97,19 +127,12 @@ func (c *Cache) GetMinCount() byte {
 	return 0
 }
 
-// The Queue Model
-type Queue struct {
-	mx   sync.RWMutex
-	list map[string]*item
-	order
-	availableSpace byte
-}
+// HasExpression increments the expression counter if the expression is in the queue or returns false
+func (c *Cache) HasExpression(expression string) byte {
+	c.mx.Lock()
+	defer c.mx.Unlock()
 
-func (q *Queue) HasExpression(expression string) byte {
-	q.mx.Lock()
-	q.mx.Unlock()
-
-	item, ok := q.list[expression]
+	item, ok := c.queue.list[expression]
 	if ok {
 		item.Count++
 		return item.Count
@@ -118,87 +141,60 @@ func (q *Queue) HasExpression(expression string) byte {
 	return 0
 }
 
-func (q *Queue) Delete(expression string) {
-	q.mx.Lock()
-	defer q.mx.Unlock()
+func (c *Cache) DeleteInQueue(expression string) {
+	c.mx.Lock()
+	defer c.mx.Unlock()
 
-	delete(q.list, expression)
-	q.availableSpace++
+	delete(c.queue.list, expression)
+	c.queue.availableSpace++
 }
 
-func (q *Queue) Move(*item) (err error) {
+func (c *Cache) AddToQueue(expression string, item *item) (err error) {
+	c.mx.Lock()
+	defer c.mx.Unlock()
 
-	return
-}
-
-func (q *Queue) Add(expression string, item *item) (err error) {
-	q.mx.Lock()
-	defer q.mx.Unlock()
-
-	_, ok := q.list[expression]
+	_, ok := c.queue.list[expression]
 	if ok {
-		q.list[expression].Count = q.list[expression].Count + 1
+		c.queue.list[expression].Count = c.queue.list[expression].Count + 1
 		return
 	}
 
-	if q.availableSpace == 0 {
-		delete(q.list, expression)
-		q.list[expression] = item
-		err = q.order.SubstituteWith(item)
+	if c.queue.availableSpace == 0 {
+		delete(c.queue.list, expression)
+		c.queue.list[expression] = item
+		err = c.SubstituteWith(item)
 	} else {
-		q.list[expression] = item
-		q.order.Add(item)
-		q.availableSpace--
+		c.queue.list[expression] = item
+		c.AddToQueueOrder(item)
+		c.queue.availableSpace--
 	}
+
 	return
 }
 
-func NewQueue(size byte) *Queue {
-	newQueueList := make(map[string]*item, size)
-	return &Queue{list: newQueueList, availableSpace: size}
-}
-
-type orderItem struct {
-	item     *item
-	next     *orderItem
-	previous *orderItem
-}
-
-type order struct {
-	mx   sync.RWMutex
-	head *orderItem
-	tail *orderItem
-}
-
-func (o *order) Add(item *item) {
-	o.mx.Lock()
-	defer o.mx.Unlock()
-
+func (c *Cache) AddToQueueOrder(item *item) {
 	newOrderItem := &orderItem{item: item}
 
-	switch o.head {
+	switch c.queue.head {
 	case nil: // list is empty
-		o.head = newOrderItem
-		o.tail = newOrderItem
+		c.queue.head = newOrderItem
+		c.queue.tail = newOrderItem
 	default:
-		newOrderItem.next = o.head
-		o.head.previous = newOrderItem
-		o.head = newOrderItem
+		newOrderItem.next = c.queue.head
+		c.queue.head.previous = newOrderItem
+		c.queue.head = newOrderItem
 	}
 }
 
-func (o *order) SubstituteWith(item *item) (err error) {
-	o.mx.Lock()
-	defer o.mx.Unlock()
-
-	if o.head != nil {
-		o.head.next.previous = nil
-		o.tail.next = &orderItem{
+func (c *Cache) SubstituteWith(item *item) (err error) {
+	if c.queue.head != nil {
+		c.queue.head.next.previous = nil
+		c.queue.tail.next = &orderItem{
 			item:     item,
 			next:     nil,
-			previous: o.tail,
+			previous: c.queue.tail,
 		}
-		o.head = o.head.next
+		c.queue.head = c.queue.head.next
 	} else {
 		err = errors.New("the queue is empty yet")
 	}
