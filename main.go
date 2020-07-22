@@ -101,31 +101,19 @@ func main() {
 				}
 				messageRow = AddMessage(messageLog, strings.Join([]string{"The expression result was calculated", strconv.Itoa(int(result))}, ": "), messageRow)
 
-				if !LRU.cache.CheckSpaceAndAddToCache(expression, result) {
+				if !LRU.cache.CheckSpaceAndAddToCache(expression, result, 1) {
 					messageRow = AddMessage(messageLog, "The cache has no space to add this expression", messageRow)
 
 					// Work with queue
-					queueHas := LRU.cache.HasExpression(expression)
-					if queueHas != 0 {
-						messageRow = AddMessage(messageLog, "The queue has this expression. The counter was incremented", messageRow)
-						if queueHas > LRU.cache.GetMinCount() {
+					count := LRU.cache.HasExpression(expression)
+					if count != 0 {
+						messageRow = AddMessage(messageLog, "The queue has this expression. The counter was incremented: "+strconv.Itoa(int(count)), messageRow)
+						if count > LRU.cache.GetMinCount() {
 
-							// TODO: Move everything here to one method in order to block cache until all here is finished
-
-							// Move the least popular item to queue
-							LRU.cache.DeleteInQueue(expression)
-							expressionToMove, itemToMove := LRU.cache.Pop()
-							err = LRU.cache.AddToQueue(expressionToMove, itemToMove)
+							err = LRU.cache.Move(expression, result, count)
 							if err != nil {
 								messageRow = AddMessage(messageLog, err.Error(), messageRow)
 								break
-							}
-							messageRow = AddMessage(messageLog, strings.Join([]string{"The expression was moved to the queue", expressionToMove}, ": "), messageRow)
-
-							// AddToQueue to the cache the new item
-							ok := LRU.cache.CheckSpaceAndAddToCache(expression, result)
-							if ok {
-								messageRow = AddMessage(messageLog, strings.Join([]string{"The expression was moved to the cache", expression}, ": "), messageRow)
 							}
 						} else {
 							messageRow = AddMessage(messageLog, "No need to move to cache", messageRow)

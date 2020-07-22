@@ -79,32 +79,59 @@ func (c *Cache) HasResult(expression string) (ok bool) {
 }
 
 // CheckSpaceAndAddToCache adds an item to the cache unless the cache is full
-func (c *Cache) CheckSpaceAndAddToCache(expression string, result int64) (ok bool) {
+func (c *Cache) CheckSpaceAndAddToCache(expression string, result int64, count byte) (ok bool) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 
 	ok = c.capacity > c.size
 	if ok {
-		var cacheItem expressionResult
-		cacheItem.result = result
-		cacheItem.item.Count = 1
+		c.items[expression] = &expressionResult{
+			result: result,
+			item: item{Count: count},
+		}
 
-		c.items[expression] = &cacheItem
-		c.minCountItemExpression = expression
+		if c.minCountItemExpression == "" || c.minCount > count {
+			c.minCountItemExpression = expression
+			c.minCount = count
+		}
+
 		c.size++
 	}
 
 	return
 }
 
-func (c *Cache) Pop() (expressionToMove string, itemToMove *item) {
+func (c *Cache) Move(expression string, result int64, count byte) (err error) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 
-	expressionToMove = c.minCountItemExpression
-	itemToMove = &c.items[c.minCountItemExpression].item
+	// Delete item in the queue
+	delete(c.queue.list, expression)
+
+	// Pop an item in cache
+	expressionToMoveToQueue := c.minCountItemExpression
+	itemToMoveToQueue := &c.items[c.minCountItemExpression].item
 	delete(c.items, c.minCountItemExpression)
-	c.size--
+
+	// Add the popped item to cache
+	c.queue.list[expressionToMoveToQueue] = itemToMoveToQueue
+	c.AddToQueueOrder(itemToMoveToQueue)
+
+	// Add the input expression to the cache with the result and count
+	c.items[expression] = &expressionResult{
+		result: result,
+		item: item{Count: count},
+	}
+
+	if c.minCount > count {
+		c.minCountItemExpression = expression
+		c.minCount = count
+	}
+
+	if c.minCountItemExpression == "" {
+		err = errors.New("strange minCountItemExpression")
+	}
+
 	return
 }
 
@@ -139,14 +166,6 @@ func (c *Cache) HasExpression(expression string) byte {
 	}
 
 	return 0
-}
-
-func (c *Cache) DeleteInQueue(expression string) {
-	c.mx.Lock()
-	defer c.mx.Unlock()
-
-	delete(c.queue.list, expression)
-	c.queue.availableSpace++
 }
 
 func (c *Cache) AddToQueue(expression string, item *item) (err error) {
