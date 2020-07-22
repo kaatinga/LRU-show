@@ -2,21 +2,11 @@ package main
 
 import (
 	"github.com/gdamore/tcell"
+	"github.com/kaatinga/calc"
 	"github.com/rivo/tview"
 	"log"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/kaatinga/calc"
-)
-
-const (
-	FormattedDateTime = "02.01.2006 15:04"
-)
-
-var (
-	moscow *time.Location
 )
 
 func AddMessage(messageLog *tview.Table, text string, messageRow int) int {
@@ -28,12 +18,16 @@ func AddMessage(messageLog *tview.Table, text string, messageRow int) int {
 
 func main() {
 
-	// set location
-	moscow, _ = time.LoadLocation("Europe/Moscow")
+	// Create a new cache and queue
+	var (
+		LRU LRUMonitor
+		err error
+	)
 
-	// Create a new cache
-	var queue = NewQueue(100)
-	var cache = NewCache(4)
+	LRU.cache, err = NewCache(3, 3)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	// Announce the app
 	app := tview.NewApplication()
@@ -44,9 +38,10 @@ func main() {
 			SetText(text)
 	}
 
-	cacheData := tview.NewTable()
-	queueData := tview.NewTable()
-	queueOrderData := tview.NewTable()
+	LRU.cacheData = tview.NewTable()
+	LRU.queueData = tview.NewTable()
+	LRU.queueOrderData = tview.NewTable()
+
 	messageLog := tview.NewTable()
 	inputField := tview.NewInputField().
 		SetLabel("Enter a math expression (press ESC to exit): ").
@@ -61,13 +56,13 @@ func main() {
 
 	// titles
 	grid.AddItem(title("=== Cache ==="), 0, 0, 1, 1, 0, 0, false).
-		AddItem(title("=== Queue ==="), 0, 1, 1, 1, 0, 0, false).
-		AddItem(title("=== Queue Order ==="), 0, 2, 1, 1, 0, 0, false).
+		AddItem(title("=== queue ==="), 0, 1, 1, 1, 0, 0, false).
+		AddItem(title("=== queue Order ==="), 0, 2, 1, 1, 0, 0, false).
 		AddItem(title("=== Message Log ==="), 0, 3, 1, 1, 0, 0, false)
 
-	grid.AddItem(cacheData, 1, 0, 1, 1, 0, 0, false).
-		AddItem(queueData, 1, 1, 1, 1, 0, 0, false).
-		AddItem(queueOrderData, 1, 2, 1, 1, 0, 0, false).
+	grid.AddItem(LRU.cacheData, 1, 0, 1, 1, 0, 0, false).
+		AddItem(LRU.queueData, 1, 1, 1, 1, 0, 0, false).
+		AddItem(LRU.queueOrderData, 1, 2, 1, 1, 0, 0, false).
 		AddItem(messageLog, 1, 3, 1, 1, 0, 0, false).
 		AddItem(inputField, 2, 0, 1, 4, 0, 0, true)
 
@@ -90,95 +85,68 @@ func main() {
 				return event
 			}
 
-			// Add a message to the log
+			// AddToQueue a message to the log
 			messageRow = AddMessage(messageLog, strings.Join([]string{"The user entered expression", expression}, ": "), messageRow)
 
 			// Start to work with cache and queue
 
-			if !cache.HasExpression(expression) {
+			if !LRU.cache.HasResult(expression) {
 
 				// Calculate the result
-				result, err := calc.Calc(expression)
+				var result int64
+				result, err = calc.Calc(expression)
 				if err != nil {
 					messageRow = AddMessage(messageLog, err.Error(), messageRow)
 					break
 				}
 				messageRow = AddMessage(messageLog, strings.Join([]string{"The expression result was calculated", strconv.Itoa(int(result))}, ": "), messageRow)
 
-				if !cache.CheckSpaceAndAdd(expression, result) {
+				if !LRU.cache.CheckSpaceAndAddToCache(expression, result) {
+					messageRow = AddMessage(messageLog, "The cache has no space to add this expression", messageRow)
 
 					// Work with queue
-					queueHas := queue.HasExpression(expression)
+					queueHas := LRU.cache.HasExpression(expression)
 					if queueHas != 0 {
-						if queueHas > cache.GetMinCount() {
+						messageRow = AddMessage(messageLog, "The queue has this expression. The counter was incremented", messageRow)
+						if queueHas > LRU.cache.GetMinCount() {
+
+							// TODO: Move everything here to one method in order to block cache until all here is finished
 
 							// Move the least popular item to queue
-							queue.Delete(expression)
-							expressionToMove, itemToMove := cache.Pop()
-							err = queue.Add(expressionToMove, itemToMove)
+							LRU.cache.DeleteInQueue(expression)
+							expressionToMove, itemToMove := LRU.cache.Pop()
+							err = LRU.cache.AddToQueue(expressionToMove, itemToMove)
 							if err != nil {
 								messageRow = AddMessage(messageLog, err.Error(), messageRow)
 								break
 							}
+							messageRow = AddMessage(messageLog, strings.Join([]string{"The expression was moved to the queue", expressionToMove}, ": "), messageRow)
 
-							// Add to the cache the new item
-							ok := cache.CheckSpaceAndAdd(expression, result)
+							// AddToQueue to the cache the new item
+							ok := LRU.cache.CheckSpaceAndAddToCache(expression, result)
 							if ok {
 								messageRow = AddMessage(messageLog, strings.Join([]string{"The expression was moved to the cache", expression}, ": "), messageRow)
 							}
+						} else {
+							messageRow = AddMessage(messageLog, "No need to move to cache", messageRow)
 						}
-					} else { // The Queue has no such an expression. The expression is new!
-						err = queue.Add(expression, &item{Count: 1})
+					} else {
+						messageRow = AddMessage(messageLog, "The queue has not such an expression. The expression is new!", messageRow)
+						err = LRU.cache.AddToQueue(expression, &item{Count: 1})
 						if err != nil {
 							messageRow = AddMessage(messageLog, err.Error(), messageRow)
 							break
 						}
 					}
+				} else {
+					messageRow = AddMessage(messageLog, "The expression was added to the cache. The cache is not full", messageRow)
 				}
 			} else {
-				messageRow = AddMessage(messageLog, strings.Join([]string{"The result was found in the cache", strconv.Itoa(int(cache.items[expression].result))}, ": "), messageRow)
+				messageRow = AddMessage(messageLog, strings.Join([]string{"The result was found in the cache", strconv.Itoa(int(LRU.cache.items[expression].result))}, ": "), messageRow)
 			}
 
 			// print the cache onscreen
-			var i int
-			for expression, cacheItem := range cache.items {
-				cacheData.SetCellSimple(i, 0, strings.Join([]string{"Expr.", expression}, ": "))
-				cacheData.SetCellSimple(i, 1, strings.Join([]string{"result", strconv.Itoa(int(cacheItem.result))}, ": "))
-				cacheData.SetCellSimple(i, 2, strings.Join([]string{"Count", strconv.Itoa(int(cacheItem.Count))}, ": "))
-				i++
-			}
-			cacheData.SetCellSimple(i, 0, "---")
-			cacheData.SetCellSimple(i, 1, "   ")
-			cacheData.SetCellSimple(i, 2, "   ")
-			i++
-			cacheData.SetCellSimple(i, 0, "Min Expr.: ")
-			cacheData.SetCellSimple(i, 2, cache.GetExpressionWithMinCount())
-			i++
-			cacheData.SetCellSimple(i, 0, "Min Count: ")
-			cacheData.SetCellSimple(i, 2, strconv.Itoa(int(cache.GetMinCount())))
-			i++
-			cacheData.SetCellSimple(i, 0, "Capacity: ")
-			cacheData.SetCellSimple(i, 2, strconv.Itoa(int(cache.capacity)))
-			i++
-			cacheData.SetCellSimple(i, 0, "Min Expr.: ")
-			cacheData.SetCellSimple(i, 2, cache.minCountItemExpression)
-			i++
-			cacheData.SetCellSimple(i, 0, "Size: ")
-			cacheData.SetCellSimple(i, 2, strconv.Itoa(int(cache.size)))
-
-			// print the queue onscreen
-			i = 0
-			for expression, cacheItem := range queue.list {
-				queueData.SetCellSimple(i, 0, strings.Join([]string{"Expr.", expression}, ": "))
-				queueData.SetCellSimple(i, 1, strings.Join([]string{"Count", strconv.Itoa(int(cacheItem.Count))}, ": "))
-				i++
-			}
-			queueData.SetCellSimple(i, 0, "---")
-			queueData.SetCellSimple(i, 1, "   ")
-			queueData.SetCellSimple(i, 2, "   ")
-			i++
-			queueData.SetCellSimple(i, 0, "Av. space: ")
-			queueData.SetCellSimple(i, 1, strconv.Itoa(int(queue.availableSpace)))
+			LRU.PrintLRU()
 
 			//	// Create a modal dialog
 			//	m := tview.NewModal().
@@ -207,7 +175,7 @@ func main() {
 		return event
 	})
 
-	err := app.SetRoot(grid, true).Run()
+	err = app.SetRoot(grid, true).Run()
 	if err != nil {
 		log.Println(err)
 	}
