@@ -41,9 +41,27 @@ func (c *Cache) Increment(expression string) (ok bool) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 
-	_, ok = c.items[expression]
+	var gottenItem *item
+	gottenItem, ok = c.items[expression]
 	if ok {
-		c.items[expression].count++
+		gottenItem.count++
+
+		if c.order.head != gottenItem {
+
+			// Set prev. and next fields for the items around
+			if c.order.tail != gottenItem {
+				gottenItem.previous.next, gottenItem.next.previous = gottenItem.next, gottenItem.previous
+			} else {
+				gottenItem.previous.next = nil
+			}
+
+			// Move the item to the beginning of the order
+			gottenItem.previous = nil
+			gottenItem.next = c.order.head
+
+			c.order.head.previous = gottenItem
+			c.order.head = gottenItem
+		}
 	}
 	return
 }
@@ -90,7 +108,7 @@ func (c *Cache) GetMinCount() byte {
 	c.mx.RLock()
 	defer c.mx.RUnlock()
 
-	return c.order.head.count
+	return c.order.tail.count
 }
 
 func (o *order) Add(item *item) {
