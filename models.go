@@ -87,11 +87,11 @@ func (c *Cache) Add(expression string, result int64) (ok bool) {
 		c.order.tail = itemToDelete.previous
 	}
 
-	// Add the new item to the cache
+	// add the new item to the cache
 	c.items[expression] = &item
 
-	// Add the new item to the order
-	c.order.Add(&item)
+	// add the new item to the order
+	c.order.add(&item)
 
 	return
 }
@@ -110,7 +110,7 @@ func (c *Cache) GetMinCount() byte {
 	return c.order.tail.count
 }
 
-func (o *order) Add(item *item) {
+func (o *order) add(item *item) {
 	switch o.head {
 	case nil: // The order association list is empty
 		o.head = item
