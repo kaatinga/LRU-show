@@ -24,7 +24,7 @@ func main() {
 		err error
 	)
 
-	LRU.cache, err = NewCache(3)
+	LRU.cache, err = NewCache(5)
 	if err != nil {
 		log.Fatalln(err)
 	}
