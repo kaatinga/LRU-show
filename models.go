@@ -24,7 +24,6 @@ type Cache struct {
 	items                  map[string]*item
 	size                   byte
 	capacity               byte
-	minCount               byte
 	order
 }
 
