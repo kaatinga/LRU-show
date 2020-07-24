@@ -8,13 +8,14 @@ import (
 type LRUMonitor struct {
 	cacheData *tview.Table
 	queueData *tview.Table
-	queueOrderData *tview.Table
-	cache *Cache
+	orderData *tview.Table
+	cache     *Cache
 }
 
-func (LRU *LRUMonitor) PrintLRU() {
+func (LRU *LRUMonitor) PrintLRU() (message string) {
 
 	var i int
+
 	LRU.cacheData.Clear()
 	LRU.cacheData.SetCellSimple(i, 0, "Expression")
 	LRU.cacheData.SetCellSimple(i, 1, "Result")
@@ -23,13 +24,13 @@ func (LRU *LRUMonitor) PrintLRU() {
 	for expression, cacheItem := range LRU.cache.items {
 		LRU.cacheData.SetCellSimple(i, 0, expression)
 		LRU.cacheData.SetCellSimple(i, 1, strconv.Itoa(int(cacheItem.result)))
-		LRU.cacheData.SetCellSimple(i, 2, strconv.Itoa(int(cacheItem.Count)))
+		LRU.cacheData.SetCellSimple(i, 2, strconv.Itoa(int(cacheItem.count)))
 		i++
 	}
 	LRU.cacheData.SetCellSimple(i, 0, "----------")
 	i++
 	LRU.cacheData.SetCellSimple(i, 0, "Min Expr.: ")
-	LRU.cacheData.SetCellSimple(i, 1, LRU.cache.GetExpressionWithMinCount())
+	LRU.cacheData.SetCellSimple(i, 1, LRU.cache.GetTheOldestExpression())
 	i++
 	LRU.cacheData.SetCellSimple(i, 0, "Min Count: ")
 	LRU.cacheData.SetCellSimple(i, 1, strconv.Itoa(int(LRU.cache.GetMinCount())))
@@ -40,19 +41,38 @@ func (LRU *LRUMonitor) PrintLRU() {
 	LRU.cacheData.SetCellSimple(i, 0, "Size: ")
 	LRU.cacheData.SetCellSimple(i, 1, strconv.Itoa(int(LRU.cache.size)))
 
-	// print the queue onscreen
-	LRU.queueData.Clear()
+	// Reuse i
 	i = 0
-	LRU.queueData.SetCellSimple(i, 0, "Expression")
-	LRU.queueData.SetCellSimple(i, 0, "Count")
+	LRU.orderData.Clear()
+	LRU.orderData.SetCellSimple(i, 0, "Expression")
+	LRU.orderData.SetCellSimple(i, 1, "Result")
+	LRU.orderData.SetCellSimple(i, 2, "Count")
+	LRU.orderData.SetCellSimple(i, 3, "Prev.")
+	LRU.orderData.SetCellSimple(i, 4, "Next")
 	i++
-	for expression, queueItem := range LRU.cache.queue.list {
-		LRU.queueData.SetCellSimple(i, 0, expression)
-		LRU.queueData.SetCellSimple(i, 1, strconv.Itoa(int(queueItem.Count)))
-		i++
+	var orderItem *item
+	orderItem = LRU.cache.order.head
+	if orderItem != nil {
+		for {
+			LRU.orderData.SetCellSimple(i, 0, orderItem.expression)
+			LRU.orderData.SetCellSimple(i, 1, strconv.Itoa(int(orderItem.result)))
+			LRU.orderData.SetCellSimple(i, 2, strconv.Itoa(int(orderItem.count)))
+
+			if orderItem.previous != nil {
+				LRU.orderData.SetCellSimple(i, 3, orderItem.previous.expression)
+			}
+
+			if orderItem.next != nil {
+				LRU.orderData.SetCellSimple(i, 4, orderItem.next.expression)
+			}
+
+			i++
+			if orderItem.next == nil {
+				return
+			}
+
+			orderItem = orderItem.next
+		}
 	}
-	LRU.queueData.SetCellSimple(i, 0, "----------")
-	i++
-	LRU.queueData.SetCellSimple(i, 0, "Av. space: ")
-	LRU.queueData.SetCellSimple(i, 1, strconv.Itoa(int(LRU.cache.queue.availableSpace)))
+	return "must not happen"
 }
