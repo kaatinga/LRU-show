@@ -83,7 +83,7 @@ func (c *Cache) GetTheOldestExpression() string {
 	c.mx.RLock()
 	defer c.mx.RUnlock()
 
-	return c.order.head.expression
+	return c.order.tail.expression
 }
 
 func (c *Cache) GetMinCount() byte {
