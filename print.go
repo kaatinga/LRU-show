@@ -29,11 +29,13 @@ func (LRU *LRUMonitor) PrintLRU() (message string) {
 	}
 	LRU.cacheData.SetCellSimple(i, 0, "----------")
 	i++
-	LRU.cacheData.SetCellSimple(i, 0, "Min Expr.: ")
-	LRU.cacheData.SetCellSimple(i, 1, LRU.cache.GetTheOldestExpression())
+	LRU.cacheData.SetCellSimple(i, 0, "Oldest: ")
 	i++
-	LRU.cacheData.SetCellSimple(i, 0, "Min Count: ")
-	LRU.cacheData.SetCellSimple(i, 1, strconv.Itoa(int(LRU.cache.GetMinCount())))
+	LRU.cacheData.SetCellSimple(i, 1, "Expr.: ")
+	LRU.cacheData.SetCellSimple(i, 2, LRU.cache.GetTheOldestExpression())
+	i++
+	LRU.cacheData.SetCellSimple(i, 1, "Count: ")
+	LRU.cacheData.SetCellSimple(i, 2, strconv.Itoa(int(LRU.cache.GetMinCount())))
 	i++
 	LRU.cacheData.SetCellSimple(i, 0, "Capacity: ")
 	LRU.cacheData.SetCellSimple(i, 1, strconv.Itoa(int(LRU.cache.capacity)))
