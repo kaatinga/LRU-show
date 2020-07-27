@@ -72,27 +72,30 @@ func (c *Cache) Delete(index string) (ok bool) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 
-	_, ok = c.items[index]
-	if ok {
-		c.items[index].previous = nil
-		c.items[index].next = nil
-	} else {
+	var gottenItem *item
+	gottenItem, ok = c.items[index]
+	if !ok {
 		return
 	}
 
-	// In case it was the only item in the Cache
-	if c.items[index] == c.order.head && c.items[index] == c.order.tail {
-		c.order.head = nil
-		c.order.tail = nil
-	}
-
-	if c.items[index].previous != c.order.head {
-		if c.items[index].next != c.order.tail {
-			c.items[index].previous.next = c.items[index].next
+	if gottenItem.previous != nil {
+		if gottenItem.next != nil {
+			gottenItem.previous.next, gottenItem.next.previous = gottenItem.next, gottenItem.previous
 		} else {
-			c.items[index].previous.next = nil
+			gottenItem.previous.next = nil
+			c.order.tail = gottenItem.previous
 		}
 	}
+
+	if gottenItem.next != nil {
+		if gottenItem.previous == nil {
+			gottenItem.next.previous = nil
+			c.order.head = gottenItem.next
+		}
+	}
+
+	gottenItem.previous = nil
+	gottenItem.next = nil
 
 	delete(c.items, index)
 	return
