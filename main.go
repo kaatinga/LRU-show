@@ -50,12 +50,12 @@ func main() {
 	// Grid Layout
 	grid := tview.NewGrid().
 		SetRows(1, 0, 1).
-		SetColumns(25, 40, 0).
+		SetColumns(25, 41, 0).
 		SetBorders(true)
 
 	// titles
 	grid.AddItem(title("== Cache (No order) =="), 0, 0, 1, 1, 0, 0, false).
-		AddItem(title("== Order (The oldest in the down) =="), 0, 1, 1, 1, 0, 0, false).
+		AddItem(title("== Order (The oldest is in the down) =="), 0, 1, 1, 1, 0, 0, false).
 		AddItem(title("== Message Log =="), 0, 2, 1, 1, 0, 0, false)
 
 	grid.AddItem(LRU.cacheData, 1, 0, 1, 1, 0, 0, false).
