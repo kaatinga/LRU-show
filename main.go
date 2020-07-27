@@ -1,147 +1,159 @@
-package main
+package LRU
 
 import (
-	"github.com/gdamore/tcell"
-	"github.com/kaatinga/calc"
-	"github.com/rivo/tview"
-	"log"
-	"strconv"
-	"strings"
+	"errors"
+	"sync"
 )
 
-func AddMessage(messageLog *tview.Table, text string, messageRow int) int {
-	messageLog.SetCellSimple(messageRow, 0, text)
-	messageLog.ScrollToEnd()
-	messageRow++
-	return messageRow
+// The LRU Cache Item Model
+type item struct {
+	count    byte
+	next     *item
+	previous *item
+	index    string
+	data     interface{}
 }
 
-func main() {
+// The LRU Cache Order SubModel
+type order struct {
+	head *item
+	tail *item
+}
 
-	// Create a new cache and queue
-	var (
-		LRU LRUMonitor
-		err error
-	)
+// The LRU Cache Model
+type Cache struct {
+	mx       sync.RWMutex
+	items    map[string]*item
+	size     byte
+	capacity byte
+	order
+}
 
-	LRU.cache, err = NewCache(5)
-	if err != nil {
-		log.Fatalln(err)
+func NewCache(cacheSize byte) (*Cache, error) {
+	if cacheSize < 2 {
+		return nil, errors.New("incorrect cache size")
 	}
 
-	// Announce the app
-	app := tview.NewApplication()
+	return &Cache{items: make(map[string]*item, cacheSize), capacity: cacheSize}, nil
+}
 
-	title := func(text string) tview.Primitive {
-		return tview.NewTextView().
-			SetTextAlign(tview.AlignCenter).
-			SetText(text)
-	}
+// Increment increments the expression counter if an item with such an index exists in the cache or returns false
+func (c *Cache) Increment(index string) (ok bool) {
+	c.mx.Lock()
+	defer c.mx.Unlock()
 
-	LRU.cacheData = tview.NewTable()
-	LRU.orderData = tview.NewTable()
+	var gottenItem *item
+	gottenItem, ok = c.items[index]
+	if ok {
+		gottenItem.count++
 
-	messageLog := tview.NewTable()
-	inputField := tview.NewInputField().
-		SetLabel("Enter a math expression (press ESC to exit): ").
-		SetPlaceholder("1 + 2").
-		SetFieldWidth(0)
+		if c.order.head != gottenItem {
 
-	// Grid Layout
-	grid := tview.NewGrid().
-		SetRows(1, 0, 1).
-		SetColumns(25, 41, 0).
-		SetBorders(true)
-
-	// titles
-	grid.AddItem(title("== Cache (No order) =="), 0, 0, 1, 1, 0, 0, false).
-		AddItem(title("== Order (The oldest is in the down) =="), 0, 1, 1, 1, 0, 0, false).
-		AddItem(title("== Message Log =="), 0, 2, 1, 1, 0, 0, false)
-
-	grid.AddItem(LRU.cacheData, 1, 0, 1, 1, 0, 0, false).
-		AddItem(LRU.orderData, 1, 1, 1, 1, 0, 0, false).
-		AddItem(messageLog, 1, 2, 1, 1, 0, 0, false).
-		AddItem(inputField, 2, 0, 1, 3, 0, 0, true)
-
-	// submitted is toggled each time Enter is pressed
-	// var submitted bool
-
-	var messageRow int
-
-	// Capture user input
-	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-
-		// Anything handled here will be executed on the main thread
-		switch event.Key() {
-		case tcell.KeyEnter:
-
-			// submitted = !submitted
-			// if submitted {
-			expression := strings.ReplaceAll(inputField.GetText(), " ", "")
-			if expression == "" {
-				return event
-			}
-
-			// AddToQueue a message to the log
-			messageRow = AddMessage(messageLog, strings.Join([]string{"The user entered expression", expression}, ": "), messageRow)
-
-			// Start to work with cache
-			if !LRU.cache.Increment(expression) {
-
-				// Calculate the result
-				var result int64
-				result, err = calc.Calc(expression)
-				if err != nil {
-					messageRow = AddMessage(messageLog, "Error: "+err.Error(), messageRow)
-					break
-				}
-				messageRow = AddMessage(messageLog, strings.Join([]string{"The expression result was calculated", strconv.Itoa(int(result))}, ": "), messageRow)
-
-				if !LRU.cache.Add(expression, result) {
-					messageRow = AddMessage(messageLog, "The cache had no free space", messageRow)
-					messageRow = AddMessage(messageLog, "The oldest item was substituted with the new one", messageRow)
-				} else {
-					messageRow = AddMessage(messageLog, "The expression was added to the cache. The cache was not full", messageRow)
-				}
+			// Set prev. and next fields for the items around
+			if c.order.tail != gottenItem {
+				gottenItem.previous.next, gottenItem.next.previous = gottenItem.next, gottenItem.previous
 			} else {
-				messageRow = AddMessage(messageLog, strings.Join([]string{"The result was found in the cache", strconv.Itoa(int(LRU.cache.items[expression].result))}, ": "), messageRow)
+				gottenItem.previous.next = nil
 			}
 
-			// print the cache onscreen
-			printMessage := LRU.PrintLRU()
-			if printMessage != "" {
-				messageRow = AddMessage(messageLog, printMessage, messageRow)
-			}
+			// Move the item to the beginning of the order
+			gottenItem.previous = nil
+			gottenItem.next = c.order.head
 
-			//	// Create a modal dialog
-			//	m := tview.NewModal().
-			//		SetText(fmt.Sprintf("You entered, %s!", expression)).
-			//		AddButtons([]string{"Ok"})
-			//
-			//	// Display and focus the dialog
-			//	app.SetRoot(m, true).SetFocus(m)
-			//} else {
-			// Clear the input field
-
-			inputField.SetText("")
-
-			// Display appGrid and focus the input field
-			app.SetRoot(grid, true).SetFocus(inputField)
-
-			//}
-
-			return nil
-		case tcell.KeyEsc:
-			// Exit the application
-			app.Stop()
-			return nil
+			c.order.head.previous = gottenItem
+			c.order.head = gottenItem
 		}
+	}
+	return
+}
 
-		return event
-	})
+// Delete deletes an item Cache with the index in the signature
+func (c *Cache) Delete(index string) (ok bool) {
+	c.mx.Lock()
+	defer c.mx.Unlock()
 
-	err = app.SetRoot(grid, true).Run()
-	if err != nil {
-		log.Println(err)
+	_, ok = c.items[index]
+	if ok {
+		c.items[index].previous = nil
+		c.items[index].next = nil
+	} else {
+		return
+	}
+
+	// In case it was the only item in the Cache
+	if c.items[index] == c.order.head && c.items[index] == c.order.tail {
+		c.order.head = nil
+		c.order.tail = nil
+	}
+
+	if c.items[index].previous != c.order.head {
+		if c.items[index].next != c.order.tail {
+			c.items[index].previous.next = c.items[index].next
+		} else {
+			c.items[index].previous.next = nil
+		}
+	}
+
+	delete(c.items, index)
+	return
+}
+
+// Add adds the new item to the Cache. Trows away the oldest item unless the Cache has free space
+func (c *Cache) Add(index string, data interface{}) (ok bool) {
+	c.mx.Lock()
+	defer c.mx.Unlock()
+
+	// New item creation
+	item := item{count: 1, index: index, data: data}
+
+	// Check if we have free space
+	ok = c.capacity > c.size
+	if ok {
+		c.size++
+	} else {
+		// Delete in the list the oldest item
+		itemToDelete := c.order.tail
+		delete(c.items, itemToDelete.index)
+
+		// Delete the oldest item in the order
+		itemToDelete.previous.next = nil
+		c.order.tail = itemToDelete.previous
+	}
+
+	// add the new item to the cache
+	c.items[index] = &item
+
+	// add the new item to the order
+	c.order.add(&item)
+
+	return
+}
+
+// GetTheOldestIndex returns the oldest index in the cache
+func (c *Cache) GetTheOldestIndex() string {
+	c.mx.RLock()
+	defer c.mx.RUnlock()
+
+	return c.order.tail.index
+}
+
+// GetMinCount returns the oldest index count field value
+func (c *Cache) GetMinCount() byte {
+	c.mx.RLock()
+	defer c.mx.RUnlock()
+
+	return c.order.tail.count
+}
+
+// add is an internal package method to keep order of the items
+func (o *order) add(item *item) {
+	switch o.head {
+	case nil: // The order association list is empty
+		o.head = item
+		o.tail = item
+	default:
+		item.next = o.head
+		o.head.previous = item
+		o.head = item
 	}
 }
