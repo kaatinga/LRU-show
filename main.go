@@ -61,7 +61,7 @@ func main() {
 
 	// titles
 	grid.AddItem(title("== Cache =="), 0, 0, 1, 1, 0, 0, false).
-		AddItem(title("== Order (The oldest is in the down) =="), 0, 1, 1, 1, 0, 0, false).
+		AddItem(title("== Order (the oldest is the last) =="), 0, 1, 1, 1, 0, 0, false).
 		AddItem(title("== Message Log =="), 0, 2, 1, 1, 0, 0, false)
 
 	grid.AddItem(Show.cacheData, 1, 0, 1, 1, 0, 0, false).
