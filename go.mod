@@ -1,8 +1,6 @@
 module github.com/kaatinga/LRU-show
 
 go 1.14
-<<<<<<< HEAD
-=======
 
 require (
 	github.com/gdamore/tcell v1.3.0
@@ -13,4 +11,3 @@ require (
 	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
 	golang.org/x/text v0.3.3 // indirect
 )
->>>>>>> updated to use https://github.com/kaatinga/LRU
