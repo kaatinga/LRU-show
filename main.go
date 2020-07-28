@@ -60,7 +60,7 @@ func main() {
 		SetBorders(true)
 
 	// titles
-	grid.AddItem(title("== Cache (No order) =="), 0, 0, 1, 1, 0, 0, false).
+	grid.AddItem(title("== Cache =="), 0, 0, 1, 1, 0, 0, false).
 		AddItem(title("== Order (The oldest is in the down) =="), 0, 1, 1, 1, 0, 0, false).
 		AddItem(title("== Message Log =="), 0, 2, 1, 1, 0, 0, false)
 
