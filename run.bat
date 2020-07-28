@@ -1,2 +1,2 @@
 go build .
-LRU
+LRU-show
