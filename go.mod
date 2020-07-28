@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/gdamore/tcell v1.3.0
-	github.com/kaatinga/LRU v0.0.0-20200728163425-ab78a90106f9
+	github.com/kaatinga/LRU v0.0.0-20200728164243-dad6454dda09
 	github.com/kaatinga/calc v0.0.0-20200721093714-9a82dff5e78b
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/rivo/tview v0.0.0-20200712113419-c65badfc3d92
