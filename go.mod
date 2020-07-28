@@ -1,3 +1,3 @@
-module github.com/kaatinga/LRU
+module LRU
 
 go 1.14
