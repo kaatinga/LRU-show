@@ -40,7 +40,7 @@ func (display *LRUMonitor) PrintCache() (message string) {
 	display.orderData.SetCellSimple(i, 3, "Prev.")
 	display.orderData.SetCellSimple(i, 4, "Next")
 	i++
-	var currentIndex, nextIndex string
+	var currentIndex, nextIndex, previousIndex string
 	currentIndex = display.cache.GetTheHeadIndex()
 	if currentIndex != "" {
 		for {
@@ -48,9 +48,10 @@ func (display *LRUMonitor) PrintCache() (message string) {
 			display.orderData.SetCellSimple(i, 1, "-")
 			display.orderData.SetCellSimple(i, 2, "-")
 
-			//if currentIndex.previous != nil {
-			//	display.orderData.SetCellSimple(i, 3, currentIndex.previous.expression)
-			//}
+			previousIndex = display.cache.GetThePreviousItemIndex(currentIndex)
+			if previousIndex != "" {
+				display.orderData.SetCellSimple(i, 3, previousIndex)
+			}
 
 			nextIndex = display.cache.GetTheNextItemIndex(currentIndex)
 			if nextIndex != "" {
