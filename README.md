@@ -1,6 +1,4 @@
-# LRU
+# LRU-show
 
-This is an LRU cache implementation with additional weight (count) attribute that has functionality yet.
-The project is not a package yet working console app.
-
-![The Flowchart Diagramm](https://raw.githubusercontent.com/kaatinga/LRU/homework/flow-chart.png)
+This is an LRU cache interactive show. You can add and delete items in the cache as well
+as to change their order in the cache.
