@@ -3,8 +3,8 @@ github.com/gdamore/encoding v1.0.0 h1:+7OoQ1Bc6eTm5niUzBa0Ctsh6JbMW6Ra+YNuAtDBdk
 github.com/gdamore/encoding v1.0.0/go.mod h1:alR0ol34c49FCSBLjhosxzcPHQbf2trDkoo5dl+VrEg=
 github.com/gdamore/tcell v1.3.0 h1:r35w0JBADPZCVQijYebl6YMWWtHRqVEGt7kL2eBADRM=
 github.com/gdamore/tcell v1.3.0/go.mod h1:Hjvr+Ofd+gLglo7RYKxxnzCBmev3BzsS67MebKS4zMM=
-github.com/kaatinga/LRU v0.0.0-20200728164243-dad6454dda09 h1:wextYQVqvsmNvc1iSblfDe7lyKORURtqH73thBDbkdo=
-github.com/kaatinga/LRU v0.0.0-20200728164243-dad6454dda09/go.mod h1:qPhKDZQwHQdpoTpzDZDSa4X03HA4A5pCqGmmMqv3f+A=
+github.com/kaatinga/LRU v0.0.0-20200729101614-b58abf13cb5e h1:KgA1tM+uj1K8vlNmjTne+Eugmnm58UdpYORuKe/Vk7U=
+github.com/kaatinga/LRU v0.0.0-20200729101614-b58abf13cb5e/go.mod h1:qPhKDZQwHQdpoTpzDZDSa4X03HA4A5pCqGmmMqv3f+A=
 github.com/kaatinga/calc v0.0.0-20200721093714-9a82dff5e78b h1:WME3hOoGKi2+DxjuyzBgz4sReIVNT+5CZNT4nTvhrSM=
 github.com/kaatinga/calc v0.0.0-20200721093714-9a82dff5e78b/go.mod h1:ErFq0k9O48gCqTPDCyWse1lyIkOGL85jl50+MgQHvxw=
 github.com/lucasb-eyer/go-colorful v1.0.2/go.mod h1:0MS4r+7BZKSJ5mw4/S5MPN+qHFF1fYclkSPilDOKW0s=
