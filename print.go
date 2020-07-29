@@ -49,7 +49,11 @@ func (display *LRUMonitor) PrintCache() (message string) {
 			result, _ = display.cache.GetStoredData(currentIndex)
 
 			display.orderData.SetCellSimple(i, 0, currentIndex)
-			display.orderData.SetCellSimple(i, 1, strconv.Itoa(int(result.(int64))))
+
+			if result != nil {
+				display.orderData.SetCellSimple(i, 1, strconv.Itoa(int(result.(int64))))
+			}
+
 			display.orderData.SetCellSimple(i, 2, "-")
 
 			previousIndex = display.cache.GetThePreviousItemIndex(currentIndex)
