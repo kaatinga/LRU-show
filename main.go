@@ -49,7 +49,7 @@ func main() {
 
 	messageLog := tview.NewTable()
 	inputField := tview.NewInputField().
-		SetLabel("Enter a math expression (press ESC to exit): ").
+		SetLabel("Enter a math expression and press Enter or Delete to add or delete an expression relatively. Press ESC to exit: ").
 		SetPlaceholder("1 + 2").
 		SetFieldWidth(0)
 
@@ -79,6 +79,35 @@ func main() {
 
 		// Anything handled here will be executed on the main thread
 		switch event.Key() {
+		case tcell.KeyDelete:
+
+			deleteExpression := strings.ReplaceAll(inputField.GetText(), " ", "")
+			if deleteExpression != "" {
+
+				messageRow = AddMessage(messageLog, strings.Join([]string{"The user wants to delete", deleteExpression}, ": "), messageRow)
+
+				_, err = calc.Calc(deleteExpression)
+				if err != nil {
+					messageRow = AddMessage(messageLog, "Incorrect expression to delete", messageRow)
+				} else {
+					var ok bool
+					ok = Show.cache.Delete(deleteExpression)
+					if !ok {
+						messageRow = AddMessage(messageLog, "No such an expression", messageRow)
+					} else {
+						messageRow = AddMessage(messageLog, "The entered expression was deleted in the cache", messageRow)
+
+						// print the cache onscreen
+						printMessage := Show.PrintCache()
+						if printMessage != "" {
+							messageRow = AddMessage(messageLog, printMessage, messageRow)
+						}
+					}
+				}
+				// Clear the delete field
+				inputField.SetText("")
+			}
+
 		case tcell.KeyEnter:
 
 			// submitted = !submitted
@@ -88,7 +117,6 @@ func main() {
 				return event
 			}
 
-			// AddToQueue a message to the log
 			messageRow = AddMessage(messageLog, strings.Join([]string{"The user entered expression", expression}, ": "), messageRow)
 
 			// Start to work with cache
@@ -127,13 +155,12 @@ func main() {
 			//	// Display and focus the dialog
 			//	app.SetRoot(m, true).SetFocus(m)
 			//} else {
-			// Clear the input field
 
+			// Clear the input field
 			inputField.SetText("")
 
 			// Display appGrid and focus the input field
-			app.SetRoot(grid, true).SetFocus(inputField)
-
+			//app.SetRoot(grid, true).SetFocus(inputField)
 			//}
 
 			return nil
