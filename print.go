@@ -79,5 +79,5 @@ func (display *LRUMonitor) PrintCache() (message string) {
 			currentIndex = nextIndex
 		}
 	}
-	return "must not happen"
+	return "The cache is empty"
 }
