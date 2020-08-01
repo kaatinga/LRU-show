@@ -61,7 +61,12 @@ func (display *LRUMonitor) PrintCache() (message string) {
 				}
 			}
 
-			display.orderData.SetCellSimple(i, 2, "-")
+			count, ok := display.cache.GetTheItemCount(currentIndex)
+			if ok {
+				display.orderData.SetCellSimple(i, 2, strconv.Itoa(int(count)))
+			} else {
+				display.orderData.SetCellSimple(i, 2, "Not Found!")
+			}
 
 			previousIndex = display.cache.GetThePreviousItemIndex(currentIndex)
 			if previousIndex != "" {
