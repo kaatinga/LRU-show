@@ -49,7 +49,7 @@ func main() {
 
 	messageLog := tview.NewTable()
 	inputField := tview.NewInputField().
-		SetLabel("Enter a math expression and press Enter or Delete to add or delete an expression relatively. Press ESC to exit: ").
+		SetLabel("Enter a math expression and press Enter or Delete to add or delete an expression relatively:").
 		SetPlaceholder("1 + 2").
 		SetFieldWidth(0)
 
@@ -61,7 +61,7 @@ func main() {
 
 	// titles
 	grid.AddItem(title("== Cache =="), 0, 0, 1, 1, 0, 0, false).
-		AddItem(title("== Order (the oldest is the last) =="), 0, 1, 1, 1, 0, 0, false).
+		AddItem(title("== Items (the oldest is the last) =="), 0, 1, 1, 1, 0, 0, false).
 		AddItem(title("== Message Log =="), 0, 2, 1, 1, 0, 0, false)
 
 	grid.AddItem(Show.cacheData, 1, 0, 1, 1, 0, 0, false).
@@ -79,6 +79,17 @@ func main() {
 
 		// Anything handled here will be executed on the main thread
 		switch event.Key() {
+		case tcell.KeyCtrlD:
+			Show.cache.Wipe()
+			messageRow = AddMessage(messageLog, "The cache has been wiped ", messageRow)
+			inputField.SetText("")
+
+			// print the cache onscreen
+			printMessage := Show.PrintCache()
+			if printMessage != "" {
+				messageRow = AddMessage(messageLog, printMessage, messageRow)
+			}
+
 		case tcell.KeyDelete:
 
 			deleteExpression := strings.ReplaceAll(inputField.GetText(), " ", "")
