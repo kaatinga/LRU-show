@@ -56,7 +56,9 @@ func (display *LRUMonitor) PrintCache() (message string) {
 			display.orderData.SetCellSimple(i, 0, currentIndex)
 
 			if result != nil {
-				display.orderData.SetCellSimple(i, 1, strconv.Itoa(int(result.(int64))))
+				if resultInt64, ok := result.(int64); ok {
+					display.orderData.SetCellSimple(i, 1, strconv.Itoa(int(resultInt64)))
+				}
 			}
 
 			display.orderData.SetCellSimple(i, 2, "-")
